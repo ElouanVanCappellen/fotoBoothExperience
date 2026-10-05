@@ -1,75 +1,99 @@
-"""Local photobooth upload server. Python 3, no dependencies."""
+"""Local TouchDesigner -> ImageKit bridge. Python 3, no extra packages.
+Set IMAGEKIT_PRIVATE_KEY in the environment before starting.
+Default JSON output: ../docs/photos.json relative to this file.
+"""
 import argparse
+import base64
 import json
+import os
+import re
+import threading
 import uuid
-from email.parser import BytesParser
-from email.policy import default
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
+from urllib.request import Request, urlopen
 
-ROOT = Path(__file__).resolve().parent
-STORE = ROOT / 'uploads'
 MAX_SIZE = 15 * 1024 * 1024
+LOCK = threading.Lock()
+CODE_PATTERN = re.compile(r'[A-Z0-9-]{4,64}')
 
-PAGE = '''<!doctype html><html lang="en"><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Photobooth upload test</title>
-<style>body{font:18px system-ui;max-width:680px;margin:60px auto;padding:24px;background:#111;color:#eee}button,input{font:inherit;margin:12px 0}button{padding:10px 20px}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#9cf}img{max-width:100%}</style>
-<h1>Photobooth upload test</h1><p>Select a JPEG or PNG to test the same backend used by TouchDesigner.</p>
-<form id="form"><input id="file" type="file" accept="image/jpeg,image/png" required><br><button>Upload photo</button></form>
-<pre id="result"></pre><div id="preview"></div>
-<script>document.querySelector('#form').onsubmit=async(e)=>{e.preventDefault();const out=document.querySelector('#result');out.textContent='Uploading…';try{const data=new FormData();data.append('image',document.querySelector('#file').files[0]);const r=await fetch('/api/photos',{method:'POST',body:data});const j=await r.json();out.textContent=JSON.stringify(j,null,2);const p=document.querySelector('#preview');p.replaceChildren();if(r.ok){const a=document.createElement('a');a.href=j.page_url;a.textContent='Open photo page';p.append(a);}}catch(err){out.textContent=String(err);}};</script></html>'''
+
+def upload_image(data, extension, code):
+    key = os.environ.get('IMAGEKIT_PRIVATE_KEY', '').strip()
+    if not key:
+        raise RuntimeError('Set IMAGEKIT_PRIVATE_KEY before starting the server')
+    boundary = 'booth' + uuid.uuid4().hex
+    filename = f'{code}_{uuid.uuid4().hex}{extension}'
+    body = bytearray()
+    for name, value in [('fileName', filename), ('folder', '/photobooth'), ('useUniqueFileName', 'true')]:
+        body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
+    mime = 'image/png' if extension == '.png' else 'image/jpeg'
+    body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\nContent-Type: {mime}\r\n\r\n'.encode())
+    body.extend(data)
+    body.extend(f'\r\n--{boundary}--\r\n'.encode())
+    credentials = base64.b64encode((key + ':').encode()).decode()
+    request = Request('https://upload.imagekit.io/api/v1/files/upload',
+                      data=bytes(body), method='POST', headers={
+                          'Authorization': 'Basic ' + credentials,
+                          'Content-Type': 'multipart/form-data; boundary=' + boundary})
+    with urlopen(request, timeout=60) as response:
+        result = json.load(response)
+    if not isinstance(result.get('url'), str) or not result.get('fileId'):
+        raise RuntimeError('ImageKit returned no image URL or file ID')
+    return result
+
+
+def save_photo(path, code, image):
+    """Serialize writes and atomically replace JSON; preserve other sessions."""
+    with LOCK:
+        data = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'sessions': []}
+        if not isinstance(data, dict) or not isinstance(data.get('sessions'), list):
+            raise ValueError('photos.json must contain a sessions array')
+        sessions = data['sessions']
+        if any(not isinstance(s, dict) or not isinstance(s.get('images'), list) for s in sessions):
+            raise ValueError('Every session must contain an images array')
+        session = next((s for s in sessions if str(s.get('code', '')).upper() == code), None)
+        if session is None:
+            session = {'code': code, 'created_at': datetime.now(timezone.utc).isoformat(), 'images': []}
+            sessions.append(session)
+        session['images'].append({'url': image['url'], 'imagekit_file_id': image['fileId'],
+                                  'caption': f"Foto {len(session['images']) + 1:02d}"})
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(path.name + '.tmp')
+        temporary.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+        os.replace(temporary, path)
 
 
 class Handler(BaseHTTPRequestHandler):
-    def send(self, status, body, content_type='application/json'):
-        if isinstance(body, dict):
-            body = json.dumps(body).encode()
-        elif isinstance(body, str):
-            body = body.encode()
+    def send(self, status, data):
+        payload = json.dumps(data).encode()
         self.send_response(status)
-        self.send_header('Content-Type', content_type)
-        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(payload)))
         self.send_header('Cache-Control', 'no-store')
         self.end_headers()
-        self.wfile.write(body)
+        self.wfile.write(payload)
 
     def do_GET(self):
-        path = urlsplit(self.path).path
-        if path == '/':
-            return self.send(200, PAGE, 'text/html; charset=utf-8')
-        if path == '/health':
-            return self.send(200, {'status': 'ok'})
-        parts = path.strip('/').split('/')
-        if len(parts) == 2 and parts[0] in ('photo', 'images'):
-            photo_id = parts[1]
-            if len(photo_id) != 32 or any(c not in '0123456789abcdef' for c in photo_id):
-                return self.send(404, {'error': 'Photo not found'})
-            files = list(STORE.glob(photo_id + '.*'))
-            if not files:
-                return self.send(404, {'error': 'Photo not found'})
-            if parts[0] == 'photo':
-                html = f'<!doctype html><html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your photo</title><body style="background:#111;color:white;font:18px system-ui;text-align:center;padding:24px"><h1>Your photobooth photo</h1><img style="max-width:100%;max-height:75vh" src="/images/{photo_id}"><p><a style="color:#9cf" href="/images/{photo_id}" download="photobooth{files[0].suffix}">Download photo</a></p></body></html>'
-                return self.send(200, html, 'text/html; charset=utf-8')
-            return self.send(200, files[0].read_bytes(), 'image/png' if files[0].suffix == '.png' else 'image/jpeg')
+        if urlsplit(self.path).path == '/health':
+            return self.send(200, {'status': 'ok', 'imagekit_configured': bool(os.environ.get('IMAGEKIT_PRIVATE_KEY'))})
         self.send(404, {'error': 'Route not found'})
 
     def do_POST(self):
-        self.upload()
-
-    def do_PUT(self):
-        self.upload()
-
-    def upload(self):
         if urlsplit(self.path).path != '/api/photos':
             return self.send(404, {'error': 'Route not found'})
+        code = self.headers.get('X-Photo-Code', '').strip().upper()
+        if not CODE_PATTERN.fullmatch(code):
+            return self.send(400, {'error': 'Send X-Photo-Code: 4-64 letters, numbers or hyphens'})
         try:
             size = int(self.headers.get('Content-Length', '0'))
         except ValueError:
             return self.send(400, {'error': 'Invalid Content-Length'})
-        if size <= 0 or size > MAX_SIZE:
-            return self.send(413, {'error': 'Send an image body of at most 15 MB'})
+        if not 0 < size <= MAX_SIZE:
+            return self.send(413, {'error': 'Image must be between 1 byte and 15 MB'})
         self.connection.settimeout(30)
         try:
             data = self.rfile.read(size)
@@ -77,37 +101,41 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(408, {'error': 'Upload timed out'})
         if len(data) != size:
             return self.send(400, {'error': 'Incomplete upload'})
-        content_type = self.headers.get('Content-Type', '')
-        if content_type.startswith('multipart/form-data'):
-            message = BytesParser(policy=default).parsebytes(('Content-Type: ' + content_type + '\r\nMIME-Version: 1.0\r\n\r\n').encode() + data)
-            if not message.is_multipart():
-                return self.send(400, {'error': 'Invalid multipart upload'})
-            matches = [p for p in message.iter_parts() if p.get_param('name', header='content-disposition') == 'image']
-            if len(matches) != 1:
-                return self.send(400, {'error': 'Use exactly one file field named image'})
-            data = matches[0].get_payload(decode=True) or b''
-        if data.startswith(b'\x89PNG\r\n\x1a\n'):
-            extension = '.png'
-        elif data.startswith(b'\xff\xd8\xff'):
-            extension = '.jpg'
-        else:
-            return self.send(415, {'error': 'Only JPEG and PNG image data are accepted'})
-        photo_id = uuid.uuid4().hex
-        STORE.mkdir(exist_ok=True)
-        (STORE / (photo_id + extension)).write_bytes(data)
-        base = self.server.public_url
-        self.send(201, {'photo_id': photo_id, 'page_url': base + '/photo/' + photo_id, 'image_url': base + '/images/' + photo_id})
+        extension = '.png' if data.startswith(b'\x89PNG\r\n\x1a\n') else '.jpg' if data.startswith(b'\xff\xd8\xff') else None
+        if extension is None:
+            return self.send(415, {'error': 'Send raw PNG or JPEG image bytes'})
+        try:
+            image = upload_image(data, extension, code)
+        except HTTPError as error:
+            return self.send(502, {'error': f'ImageKit rejected the upload (HTTP {error.code}); check your private key and account limits'})
+        except (URLError, TimeoutError):
+            return self.send(502, {'error': 'Could not reach ImageKit; check the internet connection'})
+        except Exception as error:
+            return self.send(500, {'error': str(error)})
+        try:
+            save_photo(self.server.json_path, code, image)
+        except Exception as error:
+            # Return the successful upload details so the link can be recovered.
+            return self.send(500, {'error': 'Image uploaded, but JSON could not be saved: ' + str(error),
+                                   'code': code, 'image_url': image['url'], 'imagekit_file_id': image['fileId']})
+        page = self.server.frontend_url + '?code=' + code if self.server.frontend_url else None
+        self.send(201, {'code': code, 'image_url': image['url'], 'imagekit_file_id': image['fileId'],
+                        'page_url': page, 'json_saved': True,
+                        'note': 'Push photos.json and wait for Pages deployment before using page_url'})
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=8000)
-    parser.add_argument('--public-url', help='Base URL reachable by visitors, e.g. http://192.168.1.20:8000')
+    parser.add_argument('--json', default=str(Path(__file__).resolve().parent.parent / 'docs' / 'photos.json'))
+    parser.add_argument('--frontend-url', default='https://elouanvancappellen.github.io/fotoBoothExperience/')
     args = parser.parse_args()
-    server = ThreadingHTTPServer((args.host, args.port), Handler)
-    server.public_url = (args.public_url or f'http://localhost:{args.port}').rstrip('/')
-    print(f'Photobooth backend ready: {server.public_url}', flush=True)
+    if not os.environ.get('IMAGEKIT_PRIVATE_KEY', '').strip():
+        parser.error('Set the IMAGEKIT_PRIVATE_KEY environment variable first. Never commit it to GitHub.')
+    server = ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
+    server.json_path = Path(args.json).resolve()
+    server.frontend_url = args.frontend_url
+    print(f'Backend: http://127.0.0.1:{args.port}\nJSON: {server.json_path}', flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
