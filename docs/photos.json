@@ -1,0 +1,11 @@
+{
+  "sessions": [
+    {
+      "code": "DEMO26",
+      "demo": true,
+      "images": [
+        {"url": "assets/demo.svg", "caption": "Voorbeeldbeeld"}
+      ]
+    }
+  ]
+}

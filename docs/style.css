@@ -1,0 +1,377 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+:root {
+	color-scheme: dark;
+	--bg: #171914;
+	--paper: #f3efdf;
+	--lime: #d5f578;
+	--muted: #b0b3a4;
+}
+* {
+	box-sizing: border-box;
+}
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--paper);
+	font-family: "DM Sans", sans-serif;
+}
+header,
+main,
+footer {
+	max-width: 1200px;
+	margin: auto;
+}
+header {
+	padding: 34px 44px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	border-bottom: 1px solid #ffffff18;
+}
+.brand {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	color: var(--paper);
+	text-decoration: none;
+	font:
+		700 17px "Space Grotesk",
+		sans-serif;
+	letter-spacing: 2px;
+}
+.brand-icon {
+	color: var(--lime);
+	font-size: 32px;
+}
+.brand-light {
+	height: 7px;
+	width: 7px;
+	border-radius: 50%;
+	background: var(--lime);
+}
+.header-note,
+.eyebrow,
+footer,
+.art-note,
+.print-caption,
+.print > span {
+	font-size: 11px;
+	letter-spacing: 2px;
+}
+.header-note {
+	color: var(--muted);
+}
+main {
+	padding: 88px 44px 60px;
+	display: grid;
+	grid-template-columns: 1.2fr 1fr;
+	gap: 55px;
+}
+.eyebrow {
+	color: var(--lime);
+	font-weight: 700;
+	margin: 0 0 24px;
+}
+h1,
+h2 {
+	font-family: "Space Grotesk", sans-serif;
+	letter-spacing: -4px;
+}
+h1 {
+	font-size: clamp(50px, 6vw, 78px);
+	line-height: 1.06;
+	margin: 0 0 28px;
+	font-weight: 500;
+}
+h1 span {
+	color: var(--lime);
+}
+.lead {
+	color: var(--muted);
+	line-height: 1.7;
+	max-width: 410px;
+	font-size: 17px;
+	margin: 0 0 40px;
+}
+label {
+	display: block;
+	font-size: 13px;
+	margin-bottom: 12px;
+}
+.input-row {
+	display: flex;
+	gap: 10px;
+}
+input {
+	min-width: 0;
+	width: 100%;
+	background: #22251e;
+	border: 1px solid #555a48;
+	border-radius: 6px;
+	color: var(--paper);
+	padding: 17px;
+	font:
+		500 17px "Space Grotesk",
+		sans-serif;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+}
+input::placeholder {
+	color: #929782;
+	text-transform: none;
+	letter-spacing: 0;
+}
+button {
+	white-space: nowrap;
+	background: var(--lime);
+	color: #202619;
+	border: 0;
+	border-radius: 6px;
+	padding: 16px 20px;
+	font:
+		700 14px "DM Sans",
+		sans-serif;
+	cursor: pointer;
+}
+button span {
+	padding-left: 14px;
+	font-size: 20px;
+}
+button:hover {
+	background: #e3ffaa;
+}
+button:disabled {
+	opacity: 0.6;
+	cursor: wait;
+}
+:focus-visible {
+	outline: 3px solid var(--lime);
+	outline-offset: 4px;
+}
+.hint {
+	font-size: 12px;
+	line-height: 1.6;
+	color: var(--muted);
+}
+#status {
+	font-size: 14px;
+	line-height: 1.6;
+	min-height: 24px;
+	margin: 16px 0 0;
+}
+#status[data-error="true"] {
+	color: #ffc3ab;
+}
+.art {
+	position: relative;
+	min-height: 420px;
+	align-self: center;
+}
+.orbit {
+	position: absolute;
+	inset: 5% 0;
+	border: 1px solid #d5f57824;
+	border-radius: 50%;
+	transform: rotate(-30deg);
+}
+.print {
+	position: absolute;
+	width: 245px;
+	background: var(--paper);
+	padding: 14px;
+	color: #23281d;
+	box-shadow: 0 15px 40px #0006;
+}
+.print-back {
+	left: 8%;
+	top: 20px;
+	transform: rotate(-13deg);
+}
+.print-front {
+	right: 4%;
+	top: 92px;
+	transform: rotate(9deg);
+}
+.print-image {
+	height: 250px;
+	background: radial-gradient(
+		ellipse at 60% 60%,
+		#dcf3a4 0%,
+		#a4bd69 30%,
+		#344835 65%,
+		#25322c 100%
+	);
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+}
+.print-front .print-image {
+	background:
+		radial-gradient(circle at 80% 10%, #f6d4a5, transparent 60%),
+		linear-gradient(145deg, #646c4a, #c5d39a);
+}
+.print-image span {
+	font-size: 220px;
+	color: #e8f9ad;
+	line-height: 1;
+	transform: rotate(-14deg);
+}
+.print-back > span {
+	display: block;
+	font-size: 8px;
+	margin-top: 18px;
+}
+.print-caption {
+	display: flex;
+	justify-content: space-between;
+	font-size: 7px;
+	letter-spacing: 1px;
+	margin: 20px 0 6px;
+}
+.art-note {
+	position: absolute;
+	bottom: 0;
+	left: 28%;
+	color: var(--muted);
+}
+#results {
+	grid-column: 1/-1;
+	border-top: 1px solid #ffffff20;
+	padding-top: 42px;
+	margin-top: 20px;
+}
+.results-heading {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.results-heading .eyebrow {
+	margin-bottom: 12px;
+}
+h2 {
+	font-size: 40px;
+	letter-spacing: -2px;
+	margin: 0 0 26px;
+}
+#photo-count {
+	color: var(--muted);
+	font-size: 13px;
+}
+.gallery {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+	gap: 24px;
+}
+.photo-card {
+	background: var(--paper);
+	color: #24291d;
+	padding: 12px;
+	margin: 0;
+	border-radius: 2px;
+}
+.photo-card img {
+	display: block;
+	width: 100%;
+	aspect-ratio: 4/5;
+	object-fit: contain;
+	background: #dedccd;
+}
+.photo-card figcaption {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 16px 2px 6px;
+	font-size: 13px;
+}
+.photo-card a {
+	color: #29361b;
+	font-weight: 700;
+	text-underline-offset: 4px;
+}
+.photo-error {
+	padding: 16px;
+	color: #7e2b15;
+	font-size: 13px;
+}
+footer {
+	padding: 26px 44px;
+	display: flex;
+	justify-content: space-between;
+	color: var(--muted);
+	border-top: 1px solid #ffffff18;
+	font-size: 10px;
+}
+[hidden] {
+	display: none !important;
+}
+@media (max-width: 900px) {
+	main {
+		gap: 28px;
+		padding-top: 64px;
+	}
+	.print {
+		width: 200px;
+	}
+	.print-image {
+		height: 210px;
+	}
+	.input-row {
+		flex-direction: column;
+	}
+	.art {
+		min-height: 390px;
+	}
+}
+@media (max-width: 650px) {
+	header {
+		padding: 22px;
+	}
+	.header-note {
+		display: none;
+	}
+	main {
+		display: block;
+		padding: 52px 22px 38px;
+	}
+	.lead {
+		font-size: 16px;
+	}
+	.input-row {
+		flex-direction: row;
+	}
+	button {
+		padding: 14px;
+		font-size: 12px;
+	}
+	button span {
+		padding-left: 4px;
+	}
+	.art {
+		margin: 45px auto 20px;
+		max-width: 340px;
+		min-height: 360px;
+	}
+	.print {
+		width: 195px;
+	}
+	.print-image {
+		height: 195px;
+	}
+	.print-front {
+		top: 80px;
+	}
+	.print-image span {
+		font-size: 175px;
+	}
+	footer {
+		padding: 22px;
+		letter-spacing: 1px;
+	}
+	#results {
+		margin-top: 40px;
+	}
+	.gallery {
+		grid-template-columns: 1fr;
+	}
+}

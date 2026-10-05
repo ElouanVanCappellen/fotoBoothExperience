@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="nl">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#171914" />
+		<title>Photobooth — jouw moment</title>
+		<link rel="stylesheet" href="style.css" />
+		<script src="app.js" defer></script>
+	</head>
+	<body>
+		<header>
+			<a class="brand" href="./" aria-label="Photobooth startpagina"
+				><span class="brand-icon" aria-hidden="true">✳</span> PHOTOBOOTH<span
+					class="brand-light"
+					aria-hidden="true"
+				></span></a
+			><span class="header-note">EEN MOMENT OM TE BEWAREN</span>
+		</header>
+		<main>
+			<section class="intro" aria-labelledby="title">
+				<p class="eyebrow">JIJ WAS ERBIJ.</p>
+				<h1 id="title">Jouw moment.<br /><span>Jouw foto’s.</span></h1>
+				<p class="lead">
+					Een flits, een pose, een herinnering. Vul de code op je ticket in en
+					bekijk jouw foto’s.
+				</p>
+				<form id="lookup" novalidate>
+					<label for="code">Jouw fotocode</label>
+					<div class="input-row">
+						<input
+							id="code"
+							name="code"
+							placeholder="Bijv. DEMO26"
+							maxlength="64"
+							autocomplete="off"
+							autocapitalize="characters"
+							spellcheck="false"
+							aria-describedby="hint status"
+							required
+						/><button id="submit" type="submit">
+							Bekijk foto’s <span aria-hidden="true">↗</span>
+						</button>
+					</div>
+					<p id="hint" class="hint">
+						Je vindt de code op je ticket. Hoofdletters maken niet uit.
+					</p>
+				</form>
+				<p id="status" role="status" aria-live="polite"></p>
+			</section>
+			<aside class="art" aria-hidden="true">
+				<div class="orbit"></div>
+				<div class="print print-back">
+					<div class="print-image"></div>
+					<span>GOOD TIMES / KEEP FOREVER</span>
+				</div>
+				<div class="print print-front">
+					<div class="print-image"><span>✳</span></div>
+					<div class="print-caption">
+						<span>ONE LITTLE MOMENT</span><span>01 / 03</span>
+					</div>
+				</div>
+				<span class="art-note">MADE TO BE KEPT.</span>
+			</aside>
+			<section id="results" hidden aria-labelledby="results-title">
+				<div class="results-heading">
+					<div>
+						<p class="eyebrow">VASTGELEGD VOOR JOU</p>
+						<h2 id="results-title">Daar ben je.</h2>
+					</div>
+					<span id="photo-count"></span>
+				</div>
+				<div id="gallery" class="gallery"></div>
+				<p class="hint">
+					Op je telefoon: open de foto en houd ze ingedrukt om ze te bewaren.
+				</p>
+			</section>
+		</main>
+		<footer>
+			<span>PHOTOBOOTH EXPERIENCE</span><span>Neem het moment mee.</span>
+		</footer>
+	</body>
+</html>
