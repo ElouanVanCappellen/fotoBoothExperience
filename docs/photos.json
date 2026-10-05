@@ -4,7 +4,21 @@
       "code": "DEMO26",
       "demo": true,
       "images": [
-        {"url": "assets/demo.svg", "caption": "Voorbeeldbeeld"}
+        {
+          "url": "assets/demo.svg",
+          "caption": "Voorbeeldbeeld"
+        }
+      ]
+    },
+    {
+      "code": "FF9EED167990",
+      "created_at": "2026-10-05T12:15:29.168737+00:00",
+      "images": [
+        {
+          "url": "https://ik.imagekit.io/cfzrhh6ywy/photobooth/FF9EED167990_75759cff60bf4d7fb3521baaa20b73a5_UvVRZ0B3F.png",
+          "imagekit_file_id": "6ac394e0ead997d09ac5407b",
+          "caption": "Foto 01"
+        }
       ]
     }
   ]
