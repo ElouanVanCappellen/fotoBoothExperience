@@ -1,3 +1,20 @@
-uploads/
+# Python environments and generated files
+.venv/
+venv/
 __pycache__/
+*.py[cod]
+
+# Secrets and local configuration
 .env
+.env.*
+!.env.example
+
+# Local photos
+captures/
+uploads/
+
+# macOS files
+.DS_Store
+
+# Logs
+*.log
