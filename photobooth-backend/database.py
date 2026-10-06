@@ -1,5 +1,11 @@
 import os
 from datetime import datetime, timezone
+print(
+    "MongoDB URI check:",
+    "length =", len(uri),
+    "valid prefix =", uri.startswith(("mongodb://", "mongodb+srv://")),
+    "first character =", repr(uri[:1]),
+)
 from pymongo import MongoClient
 
 
