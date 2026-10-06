@@ -1,20 +1,22 @@
 import os
 from datetime import datetime, timezone
-print(
-    "MongoDB URI check:",
-    "length =", len(uri),
-    "valid prefix =", uri.startswith(("mongodb://", "mongodb+srv://")),
-    "first character =", repr(uri[:1]),
-)
 from pymongo import MongoClient
 
 
 def connect():
     uri = os.environ.get('MONGODB_URI', '').strip()
+
+    print(
+        "MongoDB URI check:",
+        "length =", len(uri),
+        "valid prefix =", uri.startswith(("mongodb://", "mongodb+srv://")),
+        "first character =", repr(uri[:1]),
+    )
+
     if not uri:
         raise RuntimeError('Set MONGODB_URI in the environment')
     client = MongoClient(uri, serverSelectionTimeoutMS=10000, connectTimeoutMS=10000,
-                         socketTimeoutMS=20000)
+                        socketTimeoutMS=20000)
     try:
         client.admin.command('ping')
     except Exception:
