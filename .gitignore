@@ -8,7 +8,7 @@ __pycache__/
 .env
 .env.*
 !.env.example
-
+.venv
 # Local photos
 captures/
 uploads/
