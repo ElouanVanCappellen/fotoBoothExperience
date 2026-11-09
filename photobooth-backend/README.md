@@ -1,78 +1,348 @@
-# Photobooth test backend
+# Photobooth Backend Documentation
 
-Requires Python 3. No packages to install.
+## Summary
 
-## Start
+The photobooth combines TouchDesigner-based interaction with a backend image-receiving system.
 
-Open a terminal in this folder and run:
+TouchDesigner manages the user experience. The backend provides the destination for uploaded photographs.
 
-```sh
-python3 server.py
+---
+
+## Backend Setup & Installation
+
+The photobooth backend is built with Python and FastAPI.
+It uses MongoDB Atlas to store photo sessions and ImageKit to host uploaded images.
+
+### 1. Prerequisites
+
+Make sure you have:
+
+- Python 3.10 or newer
+- pip
+- A MongoDB Atlas database and connection string
+- An ImageKit account with a private API key
+
+### 2. Install Dependencies
+
+Open a terminal and navigate to the folder containing
+`server.py`, `database.py` and `imagekit_upload.py`.
+
+Create a Python virtual environment:
+
+```bash
+python3 -m venv .venv
 ```
 
-Open http://localhost:8000 to upload a photo manually. Stop with Ctrl+C.
+Activate the virtual environment:
 
-## Upload API
+**macOS / Linux:**
 
-`POST /api/photos` or `PUT /api/photos` accepts:
+```bash
+source .venv/bin/activate
+```
 
-- Raw PNG/JPEG bytes (ideal for TouchDesigner).
-- Multipart form data with one file field named `image` (browser test).
+**Windows (PowerShell):**
 
-Maximum request size: 15 MB. Success returns HTTP 201:
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Install the required Python packages:
+
+```bash
+python -m pip install fastapi uvicorn pymongo
+```
+
+These are the external Python packages imported by the backend.
+
+### 3. Configure Environment Variables
+
+The backend reads its configuration from environment variables.
+
+| Variable               | Required        | Description                              |
+| ---------------------- | --------------- | ---------------------------------------- |
+| `MONGODB_URI`          | Yes             | MongoDB Atlas connection string          |
+| `MONGODB_DB`           | No              | Database name (default: `photobooth`)    |
+| `IMAGEKIT_PRIVATE_KEY` | Yes for uploads | ImageKit private API key                 |
+| `FRONTEND_URL`         | No              | Public frontend URL                      |
+| `FRONTEND_ORIGINS`     | No              | Comma-separated allowed frontend origins |
+
+On macOS or Linux, configure the variables in your terminal:
+
+```bash
+export MONGODB_URI="mongodb+srv://USERNAME:PASSWORD@CLUSTER.mongodb.net/"
+export MONGODB_DB="photobooth"
+export IMAGEKIT_PRIVATE_KEY="your_imagekit_private_key"
+```
+
+Replace the placeholder values with your own credentials.
+
+The backend reads environment variables directly using `os.environ`.
+It does not automatically load a `.env` file.
+
+**_Never_** commit your private keys or MongoDB credentials to Git.
+
+### 4. Start the Backend
+
+With the virtual environment activated and environment variables configured, run:
+
+```bash
+python server.py
+```
+
+By default, the backend starts at:
+
+```text
+http://127.0.0.1:8000
+```
+
+You can also specify a custom port:
+
+```bash
+python server.py --port 8001
+```
+
+The server runs locally and only accepts upload requests from the same computer.
+
+During startup, the backend connects to MongoDB Atlas and verifies the connection using a ping command.
+
+If the MongoDB connection fails, the server will not start successfully.
+
+### 5. Verify Backend Connection
+
+Open another terminal and run:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+A successful response looks like:
 
 ```json
-{"photo_id":"random32characterid", "page_url":"http://localhost:8000/photo/...", "image_url":"http://localhost:8000/images/..."}
+{
+	"status": "ok",
+	"mongodb_connected": true,
+	"imagekit_configured": true
+}
 ```
 
-Use `page_url` for the ticket QR code. `GET /health` returns server status.
-Photos persist in `uploads/` next to the server across restarts.
+This verifies that:
 
-Terminal test, replacing the file path:
+- The API server is running.
+- MongoDB is accessible.
+- An ImageKit private key is configured.
 
-```sh
-curl -X POST http://localhost:8000/api/photos -H 'Content-Type: image/png' --data-binary @photo.png
+### 6. API Endpoints
+
+The backend provides three endpoints.
+
+| Method | Endpoint             | Description                                                  |
+| ------ | -------------------- | ------------------------------------------------------------ |
+| `GET`  | `/health`            | Checks backend and database status                           |
+| `POST` | `/api/photos`        | Uploads an image to ImageKit and saves its record in MongoDB |
+| `GET`  | `/api/photos/{code}` | Retrieves a photo session by its code                        |
+
+#### Upload a photograph
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/photos \
+  -H "X-Photo-Code: TEST-1234" \
+  -H "Content-Type: image/png" \
+  --data-binary "@photo.png"
 ```
 
-## TouchDesigner
+Replace `photo.png` with an existing PNG image.
 
-Paste `touchdesigner_upload.py` into a Text DAT named `upload_api`.
-Once the processed image has been saved to disk, call:
+The API also accepts JPEG images.
 
-```python
-op('upload_api').module.upload_photo('/absolute/path/to/photo.png')
+The maximum upload size is 15 MB.
+
+The session code must consist of 4–64 uppercase letters,
+numbers or hyphens. Lowercase letters in the request header
+are automatically converted to uppercase.
+
+```json
+{
+	"code": "TEST-1234",
+	"image_url": "https://ik.imagekit.io/.../photo.png",
+	"imagekit_file_id": "imagekit_generated_id",
+	"page_url": "https://elouanvancappellen.github.io/fotoBoothExperience/?code=TEST-1234",
+	"mongodb_saved": true
+}
 ```
 
-From an Execute DAT's frame callback, poll for completion:
+The image URL and file ID are generated by ImageKit.
 
-```python
-def onFrameStart(frame):
-    result = op('upload_api').module.poll_upload()
-    if result is not None:
-        if result['ok']:
-            print('Photo ready:', result['page_url'])
-            # Use this URL for the QR code and then print the ticket.
-        else:
-            print('Upload failed:', result['error'])
-    return
+#### Retrieve a photo session
+
+```bash
+curl http://127.0.0.1:8000/api/photos/TEST-1234
 ```
 
-Enable Frame Start on that Execute DAT. Keep TouchDesigner operators and printer
-actions in the main-thread callback. The upload worker only handles the file/network.
+A successful response contains the session's code,
+creation date and stored image records.
 
-## Test from a phone on the same Wi-Fi
+Example:
 
-Find the computer's local network IP in its network settings. For example:
-
-```sh
-python3 server.py --host 0.0.0.0 --public-url http://192.168.1.20:8000
+```json
+{
+	"code": "TEST-1234",
+	"created_at": "2026-11-09T10:00:00+00:00",
+	"images": [
+		{
+			"url": "https://ik.imagekit.io/.../photo.png",
+			"imagekit_file_id": "imagekit_generated_id"
+		}
+	]
+}
 ```
 
-Replace the example IP with yours, then open that address on your phone.
-Allow incoming connections if the firewall prompts. If TouchDesigner is on a
-different computer, change BACKEND_URL in the upload script to that address too.
+### 7. Database Structure
 
-This is a local development server: localhost links only work on the same computer;
-Wi-Fi links only work on that network. Public hosting, HTTPS, upload authentication,
-full image decoding/validation, and photo retention rules are needed before a public
-deployment. File signatures are checked here; images are not fully decoded.
+MongoDB stores the photobooth sessions.
+
+Default database:
+
+```text
+photobooth
+```
+
+Collection:
+
+```text
+sessions
+```
+
+Each session uses its unique session code as the MongoDB
+document `_id`.
+
+The following fields are stored:
+
+| Field        | Description                             |
+| ------------ | --------------------------------------- |
+| `_id`        | Unique session code                     |
+| `code`       | Public session code                     |
+| `created_at` | Session creation timestamp              |
+| `images`     | Array containing ImageKit image records |
+
+Each image record includes:
+
+- `url`: Public ImageKit image URL
+- `imagekit_file_id`: Unique ImageKit file ID
+
+Multiple photographs can be stored under the same session code.
+
+The database and collection do not require a separate
+initialization script. MongoDB creates them when the first
+document is inserted, provided the database user has the
+necessary permissions.
+
+### 8. Database Functions
+
+Database operations are defined in `database.py`.
+
+#### `connect()`
+
+Connects to MongoDB Atlas, verifies the connection and
+returns the MongoDB client and `sessions` collection.
+
+#### `save_image(collection, code, image)`
+
+Saves an image record to the specified session.
+
+If the session does not exist, it is created automatically.
+
+Uses MongoDB's `$addToSet` operator to avoid adding an
+identical image record twice.
+
+#### `find_session(collection, code)`
+
+Retrieves a session by its code.
+
+Returns the session code, creation timestamp and images.
+
+### 9. ImageKit Integration
+
+Image uploads are handled by `imagekit_upload.py`.
+
+The `upload_image(data, extension, code)` function:
+
+1. Reads the ImageKit private API key.
+2. Generates a unique filename.
+3. Constructs a multipart upload request.
+4. Uploads the image to ImageKit.
+5. Returns the ImageKit response.
+
+Images are uploaded to the following ImageKit folder:
+
+```text
+/photobooth
+```
+
+The backend stores the returned image URL and file ID in MongoDB.
+
+### 10. Running Locally vs. Hosting
+
+When started using:
+
+```bash
+python server.py
+```
+
+the backend enables local uploads and binds to:
+
+```text
+127.0.0.1
+```
+
+This configuration only accepts uploads originating from
+the same computer.
+
+The code also supports a read-only hosted API.
+
+By default, the upload endpoint is disabled when the app
+is started through an external ASGI server without enabling
+the `local_uploads` state setting.
+
+This allows the public API to retrieve photo sessions
+without exposing the upload functionality.
+
+### 11. Stopping the Backend
+
+To stop the server, press:
+
+```text
+Ctrl + C
+```
+
+To deactivate the Python virtual environment:
+
+```bash
+deactivate
+```
+
+### Quick Start
+
+For future sessions, assuming the dependencies are already
+installed and you are using macOS or Linux:
+
+```bash
+# Navigate to the backend folder
+cd path/to/backend
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Configure credentials
+export MONGODB_URI="your_mongodb_connection_string"
+export IMAGEKIT_PRIVATE_KEY="your_imagekit_private_key"
+
+# Start backend
+python server.py
+
+# Optional: use a custom port
+python server.py --port 8001
+```
+
+The backend is now ready to receive photographs from the
+TouchDesigner photobooth.
